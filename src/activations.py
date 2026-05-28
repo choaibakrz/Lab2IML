@@ -25,13 +25,11 @@ class ReLU:
 class Softmax:
     @staticmethod
     def forward(z):
-        # Subtract max for numerical stability
         e = np.exp(z - z.max(axis=1, keepdims=True))
         return e / e.sum(axis=1, keepdims=True)
 
     @staticmethod
     def gradient(z):
-        # When used with CrossEntropy the combined gradient simplifies to
-        # (y_pred - y_true), so we return 1 here and handle it in back_prop
-        # via the loss gradient directly.
+        # Combined with CrossEntropy the gradient simplifies to (y_pred - y_true)/N
+        # So we return ones here and let CrossEntropy.gradient carry the full gradient
         return np.ones_like(z)
