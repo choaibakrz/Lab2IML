@@ -4,7 +4,7 @@ import numpy as np
 from src.methods.dummy_methods import DummyClassifier
 from src.methods.mlp import MLP
 from src.losses import MSE, CrossEntropy
-from src.activations import Sigmoid, ReLU
+from src.activations import Sigmoid, ReLU , Softmax
 from src.methods.kmeans import KMeans
 from src.utils import normalize_fn, append_bias_term, accuracy_fn, macrof1_fn, mse_fn, label_to_onehot
 import os
