@@ -6,9 +6,9 @@ class MSE:
         :param y_pred: (array) Prediction vector
         :return: (flt)
         """
-        ### WRITE YOUR CODE HERE
+        return np.mean((y_true - y_pred) ** 2)
 
     @staticmethod
     def gradient(y_true, y_pred):
         ### WRITE YOUR CODE HERE
-        return
+        return 2 * (y_pred - y_true) / y_true.shape[0]

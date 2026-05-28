@@ -3,10 +3,10 @@ import numpy as np
 
 from src.methods.dummy_methods import DummyClassifier
 from src.methods.mlp import MLP
-from src.losses import MSE
+from src.losses import MSE, CrossEntropy
 from src.activations import Sigmoid, ReLU
 from src.methods.kmeans import KMeans
-from src.utils import normalize_fn, append_bias_term, accuracy_fn, macrof1_fn, mse_fn
+from src.utils import normalize_fn, append_bias_term, accuracy_fn, macrof1_fn, mse_fn, label_to_onehot
 import os
 
 np.random.seed(100)
@@ -40,9 +40,25 @@ def main(args):
     # Make a validation set (it can overwrite xtest, ytest)
     if not args.test:
         ### WRITE YOUR CODE HERE
-        pass
+        N = train_features.shape[0]
+        split = int(0.8 * N)
+        perm = np.random.permutation(N)
+
+        test_features        = train_features[perm[split:]]
+        test_labels_reg      = train_labels_reg[perm[split:]]
+        test_labels_classif  = train_labels_classif[perm[split:]]
+
+        train_features       = train_features[perm[:split]]
+        train_labels_reg     = train_labels_reg[perm[:split]]
+        train_labels_classif = train_labels_classif[perm[:split]]
 
     ### WRITE YOUR CODE HERE to do any other data processing
+    means = train_features.mean(axis=0, keepdims=True)
+    stds  = train_features.std(axis=0, keepdims=True)
+    stds[stds == 0] = 1  # avoid division by zero
+
+    train_features = normalize_fn(train_features, means, stds)
+    test_features  = normalize_fn(test_features,  means, stds)
 
     ## 3. Initialize the method you want to use.
 
@@ -52,11 +68,23 @@ def main(args):
 
     elif args.method == "kmeans":
         ### WRITE YOUR CODE HERE
-        pass
+        method_obj = KMeans(K=args.K, max_iters=args.max_iters)
 
     elif args.method == "mlp":
         ### WRITE YOUR CODE HERE
-        pass
+        n_features = train_features.shape[1]
+
+        if args.task == "classification":
+            n_classes  = len(np.unique(train_labels_classif))
+            method_obj = MLP(
+                dimensions=(n_features, 64, 32, n_classes),
+                activations=(ReLU, ReLU, Sigmoid)
+            )
+        else:  # regression
+            method_obj = MLP(
+                dimensions=(n_features, 64, 32, 1),
+                activations=(ReLU, ReLU, Sigmoid)
+            )
     else:
         raise ValueError(f"Unknown method: {args.method}")
 
@@ -65,12 +93,52 @@ def main(args):
     if args.task == "classification":
 
         ### WRITE YOUR CODE HERE
-        pass
+        if args.method == "mlp":
+            n_classes = len(np.unique(train_labels_classif))
+            y_onehot  = label_to_onehot(train_labels_classif, C=n_classes)
+            method_obj.fit(train_features, y_onehot,
+                           loss=CrossEntropy, epochs=args.max_iters,
+                           batch_size=32, learning_rate=args.lr)
+            pred_train = np.argmax(method_obj.predict(train_features), axis=1)
+            pred_test  = np.argmax(method_obj.predict(test_features),  axis=1)
+        else:
+            pred_train = method_obj.fit(train_features, train_labels_classif)
+            pred_test  = method_obj.predict(test_features)
+
+        acc_train = accuracy_fn(pred_train, train_labels_classif)
+        f1_train  = macrof1_fn(pred_train,  train_labels_classif)
+        acc_test  = accuracy_fn(pred_test,  test_labels_classif)
+        f1_test   = macrof1_fn(pred_test,   test_labels_classif)
+
+        print(f"\n[{args.method} - classification]")
+        print(f"  Train  accuracy={acc_train:.2f}%  macro-F1={f1_train:.4f}")
+        print(f"  Test   accuracy={acc_test:.2f}%  macro-F1={f1_test:.4f}")
 
     elif args.task == "regression":
         assert args.method != "kmeans", f"You should use kmeans as a classification method"
 
         ### WRITE YOUR CODE HERE
+        if args.method == "mlp":
+            y_col = train_labels_reg.reshape(-1, 1).astype(float)
+            y_min, y_max = y_col.min(), y_col.max()
+            y_norm = (y_col - y_min) / (y_max - y_min + 1e-8)
+
+            method_obj.fit(train_features, y_norm,
+                           loss=MSE, epochs=args.max_iters,
+                           batch_size=32, learning_rate=args.lr)
+
+            pred_train = method_obj.predict(train_features)[:, 0] * (y_max - y_min) + y_min
+            pred_test  = method_obj.predict(test_features)[:,  0] * (y_max - y_min) + y_min
+        else:
+            pred_train = method_obj.fit(train_features, train_labels_reg).astype(float)
+            pred_test  = method_obj.predict(test_features).astype(float)
+
+        mse_train = mse_fn(pred_train, train_labels_reg)
+        mse_test  = mse_fn(pred_test,  test_labels_reg)
+
+        print(f"\n[{args.method} - regression]")
+        print(f"  Train  MSE={mse_train:.4f}")
+        print(f"  Test   MSE={mse_test:.4f}")
 
     ### WRITE YOUR CODE HERE if you want to add other outputs, visualization, etc.
 
