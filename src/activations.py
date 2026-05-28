@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class Sigmoid:
     @staticmethod
     def forward(z):
@@ -7,13 +8,15 @@ class Sigmoid:
 
     @staticmethod
     def gradient(z):
-        return ...
+        s = Sigmoid.forward(z)
+        return s * (1 - s)
+
 
 class ReLU:
     @staticmethod
     def forward(z):
-        return ...
+        return np.maximum(0, z)
 
     @staticmethod
     def gradient(z):
-        return ...
+        return (z > 0).astype(float)
